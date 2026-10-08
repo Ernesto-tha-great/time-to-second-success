@@ -40,11 +40,11 @@ export interface Cliff {
   cohort: 'stalled' | 'never';
   route: string;
   status: number;
-  key_mode: 'test' | 'live';
+  keyMode: 'test' | 'live';
   developers: number;
 }
 
-/** Three tables and two queries. That's the whole instrumentation. */
+/** Records what developers do, and asks questions about it. */
 export class EventStore {
   readonly db: DatabaseSync;
 
@@ -67,6 +67,17 @@ export class EventStore {
     this.db.prepare('INSERT INTO nudges VALUES (?, ?, ?)').run(developerId, at.toISOString(), kind);
   }
 
+  transaction(work: () => void): void {
+    this.db.exec('BEGIN');
+    try {
+      work();
+      this.db.exec('COMMIT');
+    } catch (err) {
+      this.db.exec('ROLLBACK');
+      throw err;
+    }
+  }
+
   journeys(params: Params = DEFAULT_PARAMS): Journey[] {
     const rows = this.db.prepare(sql('journeys.sql')).all({
       return_gap: params.returnGap,
@@ -83,27 +94,16 @@ export class EventStore {
     }));
   }
 
+  /** Developers who made at least one API call, successful or not. */
+  callers(): number {
+    return (this.db.prepare('SELECT COUNT(DISTINCT developer_id) AS n FROM api_calls').get() as { n: number }).n;
+  }
+
   cliffs(asOf: Date, params: Params = DEFAULT_PARAMS): Cliff[] {
     return this.db.prepare(sql('cliffs.sql')).all({
       return_gap: params.returnGap,
       horizon: params.horizon,
       as_of: Math.floor(asOf.getTime() / 1000),
     }) as unknown as Cliff[];
-  }
-
-  /** Developers who made at least one API call, successful or not. */
-  callers(): number {
-    return (this.db.prepare('SELECT COUNT(DISTINCT developer_id) AS n FROM api_calls').get() as { n: number }).n;
-  }
-
-  transaction(work: () => void): void {
-    this.db.exec('BEGIN');
-    try {
-      work();
-      this.db.exec('COMMIT');
-    } catch (err) {
-      this.db.exec('ROLLBACK');
-      throw err;
-    }
   }
 }

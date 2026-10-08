@@ -5,8 +5,8 @@
  *   npm run report -- events.db now   # your own events, as of right now
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { summarise } from '../src/metrics.js';
-import { DEFAULT_PARAMS, EventStore } from '../src/store.js';
+import { summarise } from '../src/metrics';
+import { DEFAULT_PARAMS, EventStore } from '../src/store';
 
 const path = process.argv[2] ?? 'sample.db';
 const asOf = process.argv[3] === 'now' || path !== 'sample.db' ? new Date() : new Date(Date.UTC(2026, 8, 30));
@@ -33,9 +33,9 @@ console.log(`TTSS  p50 / p90               ${days(summary.ttss.p50)} / ${days(su
 for (const cohort of ['stalled', 'never'] as const) {
   const rows = cliffs.filter((c) => c.cohort === cohort);
   const total = rows.reduce((sum, r) => sum + r.developers, 0);
-  console.log(`\nLast call before going quiet: ${cohort === 'stalled' ? 'had a first success, never came back' : 'never reached a first success'} (${total})`);
+  console.log(`\nLast call within 30 days: ${cohort === 'stalled' ? 'had a first success, but no second one' : 'never reached a first success'} (${total})`);
   for (const row of rows.slice(0, 6)) {
-    console.log(`  ${String(row.developers).padStart(4)}  ${pct(row.developers / total).padStart(6)}  ${row.status}  ${row.key_mode.padEnd(4)}  ${row.route}`);
+    console.log(`  ${String(row.developers).padStart(4)}  ${pct(row.developers / total).padStart(6)}  ${row.status}  ${row.keyMode.padEnd(4)}  ${row.route}`);
   }
 }
 
